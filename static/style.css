@@ -1,0 +1,10 @@
+* /static/style.css  */
+
+    body,html {
+        height: 100%;
+    }
+
+    .flight-container {
+        margin: 0px;
+        padding: px;
+    }

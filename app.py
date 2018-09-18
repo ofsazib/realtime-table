@@ -12,7 +12,8 @@ app = Flask(__name__)
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    flights = Flight.query.all()
+    return render_template('index.html', flights=flights)
 
 
 @app.teardown_appcontext
