@@ -10,6 +10,15 @@ from models import Flight
 
 app = Flask(__name__)
 
+pusher_client = pusher.Pusher(
+    app_id=os.getenv('PUSHER_APP_ID'),
+    key=os.getenv('PUSHER_KEY'),
+    secret=os.getenv('PUSHER_SECRET'),
+    cluster=os.getenv('PUSHER_CLUSTER'),
+    ssl=True
+)
+
+
 @app.route('/')
 def index():
     flights = Flight.query.all()
@@ -21,12 +30,25 @@ def create():
     if request.method == "POST":
         flight = request.form["flight"]
         destination = request.form["destination"]
-        check_in = datetime.strptime(request.form["check_in"], '%d-%m-%Y %H:%M %p')
-        depature = datetime.strptime(request.form["depature"], '%d-%m-%Y %H:%M %p')
+        check_in = datetime.strptime(
+            request.form["check_in"], '%d-%m-%Y %H:%M %p')
+        depature = datetime.strptime(
+            request.form["depature"], '%d-%m-%Y %H:%M %p')
         status = request.form["status"]
         new_flight = Flight(flight, destination, check_in, depature, status)
         db_session.add(new_flight)
         db_session.commit()
+
+        data = {
+            "id": new_flight.id,
+            "flight": flight,
+            "destination": destination,
+            "check_in": request.form["check_in"],
+            "depature": request.form["depature"],
+            "status": status
+        }
+
+        pusher_client.trigger('table', 'new-record', {'data': data})
 
         return redirect("/create", code=302)
     else:
@@ -39,10 +61,12 @@ def update_flight(id):
     if request.method == "POST":
         flight = request.form["flight"]
         destination = request.form["destination"]
-        check_in = datetime.strptime(request.form["check_in"], '%d-%m-%Y %H:%M %p')
-        depature = datetime.strptime(request.form["depature"], '%d-%m-%Y %H:%M %p')
+        check_in = datetime.strptime(
+            request.form["check_in"], '%d-%m-%Y %H:%M %p')
+        depature = datetime.strptime(
+            request.form["depature"], '%d-%m-%Y %H:%M %p')
         status = request.form["status"]
-        
+
         edit_flight = Flight.query.get(id)
         edit_flight.flight = flight
         edit_flight.destination = destination
@@ -51,6 +75,17 @@ def update_flight(id):
         edit_flight.status = status
         db_session.commit()
 
+        data = {
+            "id": id,
+            "flight": flight,
+            "destination": destination,
+            "check_in": request.form["check_in"],
+            "depature": request.form["depature"],
+            "status": status
+        }
+
+        pusher_client.trigger('table', 'update-record', {'data': data})
+
         return redirect("/create", code=302)
     else:
         new_flight = Flight.query.get(id)
@@ -58,17 +93,12 @@ def update_flight(id):
         new_flight.depature = new_flight.depature.strftime("%d-%m-%Y %H:%M %p")
         return render_template('update-flight.html', data=new_flight)
 
+
 @app.teardown_appcontext
 def shutdown_session(exception=None):
     db_session.remove()
 
+
 # run Flask app
 if __name__ == "__main__":
-    pusher_client = pusher.Pusher(
-        app_id=os.getenv('PUSHER_APP_ID'),
-        key=os.getenv('PUSHER_KEY'),
-        secret=os.getenv('PUSHER_SECRET'),
-        cluster=os.getenv('PUSHER_CLUSTER'),
-        ssl=True
-    )
     app.run()
